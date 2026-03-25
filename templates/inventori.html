@@ -61,7 +61,7 @@
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label fw-bold">SKU</label>
-                        <input type="text" name="sku" class="form-control" placeholder="Contoh: MC-001" required>
+                        <input type="text" name="sku" id="sku_input" class="form-control" placeholder="MAHA-001" required>
                     </div>
                 </div>
                 <div class="row">
@@ -87,7 +87,7 @@
         <h3 class="mb-3">Daftar Stok Gudang</h3>
         <div class="card shadow-sm">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" id="tabel_produk">
                     <thead class="table-maharatu">
                         <tr>
                             <th>Barcode</th>
@@ -164,16 +164,25 @@
     </div>
 
     <script>
-        function generateBarcode() {
+        function generateAutomatedFields() {
+            // 1. Generate Barcode (Logika Asli)
             const now = new Date();
             const datePart = now.getFullYear().toString().slice(-2) + 
                              (now.getMonth() + 1).toString().padStart(2, '0') + 
                              now.getDate().toString().padStart(2, '0');
             const randomPart = Math.floor(1000 + Math.random() * 9000); 
-            const finalCode = "MC" + datePart + randomPart;
-            document.getElementById('barcode_input').value = finalCode;
+            const finalBarcode = "MC" + datePart + randomPart;
+            document.getElementById('barcode_input').value = finalBarcode;
+
+            // 2. Generate SKU Otomatis (MAHA-001, dst)
+            const table = document.getElementById('tabel_produk');
+            const rowCount = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr').length;
+            const nextNumber = (rowCount + 1).toString().padStart(3, '0');
+            const finalSKU = "MAHA-" + nextNumber;
+            document.getElementById('sku_input').value = finalSKU;
         }
-        window.onload = generateBarcode;
+
+        window.onload = generateAutomatedFields;
     </script>
 
 </body>
