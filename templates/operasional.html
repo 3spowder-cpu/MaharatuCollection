@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Biaya Operasional | Maharatu Collection</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .navbar { background-color: #1a1d21; border-bottom: 3px solid #d4af37; }
+        .btn-success { background-color: #d4af37; border: none; color: black; font-weight: bold; }
+        .btn-success:hover { background-color: #b8962e; color: black; }
+        .table-maharatu thead { background-color: #1a1d21; color: #d4af37; }
+        .navbar-brand { display: flex; align-items: center; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold" style="color: #d4af37;" href="/">
+                <img src="{{ url_for('static', filename='images/logo_mc.png') }}" alt="MC" height="90" class="me-2">
+                MAHARATU COLLECTION
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card p-3 shadow-sm border-0">
+                    <h4 class="mb-3 fw-bold">Input Biaya</h4>
+                    <form method="POST" action="/operasional">
+                        <div class="mb-3">
+                            <label class="form-label">Kategori</label>
+                            <select name="kategori" class="form-select" required>
+                                <option value="Listrik & Air">Listrik & Air</option>
+                                <option value="Gaji Karyawan">Gaji Karyawan</option>
+                                <option value="Packing & Plastik">Packing & Plastik</option>
+                                <option value="Sewa Tempat">Sewa Tempat</option>
+                                <option value="Lain-lain">Lain-lain</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Jumlah (Rp)</label>
+                            <input type="number" name="jumlah" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Keterangan</label>
+                            <textarea name="keterangan" class="form-control" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 py-2">Simpan Biaya</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm p-3 border-0">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold mb-0">Riwayat Pengeluaran</h4>
+                        <h4 class="text-danger fw-bold mb-0">Total: Rp {{ "{:,.0f}".format(total) }}</h4>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-maharatu text-center">
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th>Jumlah</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for b in biaya %}
+                                <tr>
+                                    <td class="text-center">{{ b.tanggal.strftime('%d/%m/%y') }}</td>
+                                    <td><span class="badge bg-secondary">{{ b.kategori }}</span></td>
+                                    <td>{{ b.keterangan }}</td>
+                                    <td class="fw-bold text-danger text-end">Rp {{ "{:,.0f}".format(b.jumlah) }}</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ b.id }}">
+                                            <i class="fa fa-edit"></i>
+                                        </button>
+                                        <a href="/operasional/hapus/{{ b.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Hapus pengeluaran ini?')">
+                                            <i class="fa fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <div class="modal fade" id="editModal{{ b.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Edit Biaya Operasional</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form action="/operasional/edit/{{ b.id }}" method="POST">
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Kategori</label>
+                                                        <select name="kategori" class="form-select" required>
+                                                            <option value="Listrik & Air" {{ 'selected' if b.kategori == 'Listrik & Air' }}>Listrik & Air</option>
+                                                            <option value="Gaji Karyawan" {{ 'selected' if b.kategori == 'Gaji Karyawan' }}>Gaji Karyawan</option>
+                                                            <option value="Packing & Plastik" {{ 'selected' if b.kategori == 'Packing & Plastik' }}>Packing & Plastik</option>
+                                                            <option value="Sewa Tempat" {{ 'selected' if b.kategori == 'Sewa Tempat' }}>Sewa Tempat</option>
+                                                            <option value="Lain-lain" {{ 'selected' if b.kategori == 'Lain-lain' }}>Lain-lain</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Jumlah (Rp)</label>
+                                                        <input type="number" name="jumlah" class="form-control" value="{{ b.jumlah }}" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Keterangan</label>
+                                                        <textarea name="keterangan" class="form-control" rows="2">{{ b.keterangan }}</textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                                    <button type="submit" class="btn btn-success">Update Data</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Kasir | Maharatu Collection</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* TAMPILAN DI LAYAR MONITOR */
+        .navbar { background-color: #1a1d21; border-bottom: 3px solid #d4af37; }
+        .bg-maharatu { background-color: #d4af37; color: black; }
+        .table-kasir thead { background-color: #1a1d21; color: white; }
+        .grand-total-box { background: #1a1d21; color: #d4af37; border-radius: 10px; padding: 20px; }
+        #scan-input { border: 2px solid #d4af37; font-size: 1.5rem; text-align: center; }
+
+        /* Style Area Kamera */
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; display: none; margin-bottom: 15px; }
+
+        /* AREA STRUK (Tersembunyi di Layar) */
+        #struk-area { display: none; }
+
+        /* PENGATURAN SAAT CETAK (PRINT) */
+        @media print {
+            body * { visibility: hidden; } 
+            nav, .container-fluid, button, .card, .navbar, #reader, .modal { display: none !important; }
+
+            #struk-area, #struk-area * { 
+                visibility: visible; 
+                display: block !important; 
+            }
+
+            #struk-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%;
+                max-width: 80mm;
+                font-family: 'Courier New', Courier, monospace; 
+                color: #000;
+                padding: 5px;
+            }
+            
+            .logo-struk {
+                width: 50px;
+                height: auto;
+                margin: 0 auto 5px auto;
+                display: block !important;
+                filter: grayscale(100%);
+            }
+
+            .text-center { text-align: center; }
+            hr { border-top: 1px dashed #000; margin: 5px 0; }
+            table { width: 100%; }
+            @page { margin: 0; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div id="struk-area">
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='images/logo_mc.png') }}" class="logo-struk" alt="Logo">
+            <h4 style="margin:0; font-weight: bold;">MAHARATU COLLECTION</h4>
+            <p style="font-size:12px; margin:0;">Pusat Fashion Terlengkap</p>
+            <hr>
+            <p style="text-align:left; font-size:11px; margin:0;">
+                Tgl: <span id="struk-tgl"></span><br>
+                Kasir: {{ session.get('username', 'Admin') }}
+            </p>
+            <hr>
+        </div>
+        <table style="width:100%; font-size:11px;">
+            <tbody id="struk-items"></tbody>
+        </table>
+        <hr>
+        <div style="text-align:right; font-size:13px; font-weight:bold;">
+            TOTAL: <span id="struk-total"></span>
+        </div>
+        <hr>
+        <div class="text-center" style="font-size:11px; margin-top:10px;">
+            Terima Kasih Atas Kunjungan Anda<br>
+            *** Simpan Struk Sebagai Bukti ***
+        </div>
+    </div>
+
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="{{ url_for('static', filename='images/logo_mc.png') }}" alt="MC" height="70" class="me-2">
+                MAHARATU COLLECTION (KASIR)
+            </a>
+            <div class="d-flex">
+                <a href="/" class="btn btn-outline-light btn-sm me-2">Dashboard</a>
+                <a href="/admin/inventori" class="btn btn-outline-warning btn-sm">Stok Barang</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold small text-uppercase mb-0">Scan Barcode / Cari Produk</label>
+                            <button id="btn-cam" class="btn btn-sm btn-dark" onclick="toggleCamera()">
+                                <i class="fas fa-camera"></i> BUKA KAMERA
+                            </button>
+                        </div>
+                        
+                        <div id="reader"></div>
+
+                        <div class="input-group mb-2">
+                            <input type="text" id="scan-input" class="form-control" placeholder="Scan..." autofocus>
+                            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalCari">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grand-total-box shadow-sm text-center">
+                    <h6 class="small text-uppercase">Total Belanja</h6>
+                    <h1 class="fw-bold" id="display-total">Rp 0</h1>
+                </div>
+                
+                <button class="btn btn-success w-100 mt-3 py-3 fw-bold fs-5 shadow" onclick="prosesBayar()">
+                    <i class="fas fa-print me-2"></i> KONFIRMASI & PRINT
+                </button>
+
+                <button id="btn-reprint" class="btn btn-outline-secondary w-100 mt-2 py-2 fw-bold d-none" onclick="cetakUlangStruk()">
+                    <i class="fas fa-redo me-2"></i> CETAK ULANG STRUK TERAKHIR
+                </button>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                        <span>Daftar Belanja</span>
+                        <span class="text-muted small">User: {{ session.get('username') }}</span>
+                    </div>
+                    <div class="table-responsive" style="min-height: 400px;">
+                        <table class="table table-hover table-kasir">
+                            <thead>
+                                <tr>
+                                    <th>Produk</th>
+                                    <th>Harga</th>
+                                    <th width="100">Qty</th>
+                                    <th>Subtotal</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cart-items"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCari" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Cari Produk Manual</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="inputCariManual" class="form-control mb-3" placeholder="Ketik nama produk..." onkeyup="filterProduk()">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-bordered table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Nama Produk</th>
+                                    <th>Harga</th>
+                                    <th>Stok</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="daftarProdukManual"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let keranjang = [];
+        let dataTerakhir = null;
+        let html5QrCode = null;
+        let isCamOpen = false;
+        let semuaProduk = [];
+
+        function bunyiTit() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = 'square'; 
+                oscillator.frequency.setValueAtTime(1100, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime); 
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.05);
+            } catch (e) { console.log("Audio Error"); }
+        }
+
+        function toggleCamera() {
+            const readerDiv = document.getElementById('reader');
+            const btnCam = document.getElementById('btn-cam');
+
+            if (!isCamOpen) {
+                readerDiv.style.display = 'block';
+                html5QrCode = new Html5Qrcode("reader");
+                const config = { fps: 20, qrbox: { width: 250, height: 150 } };
+                
+                html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+                    ambilDataProduk(decodedText);
+                    html5QrCode.pause(true);
+                    setTimeout(() => html5QrCode.resume(), 1500);
+                });
+
+                btnCam.innerHTML = '<i class="fas fa-video-slash"></i> MATIKAN KAMERA';
+                btnCam.classList.replace('btn-dark', 'btn-danger');
+                isCamOpen = true;
+            } else {
+                html5QrCode.stop().then(() => {
+                    readerDiv.style.display = 'none';
+                    btnCam.innerHTML = '<i class="fas fa-camera"></i> BUKA KAMERA';
+                    btnCam.classList.replace('btn-danger', 'btn-dark');
+                    isCamOpen = false;
+                });
+            }
+        }
+
+        const scanInput = document.getElementById('scan-input');
+        scanInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const barcode = this.value;
+                if (barcode) { ambilDataProduk(barcode); }
+                this.value = '';
+            }
+        });
+
+        function ambilDataProduk(barcode) {
+            fetch(`/api/get_produk/${barcode}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Barang tidak terdaftar!');
+                    return response.json();
+                })
+                .then(data => {
+                    bunyiTit(); 
+                    tambahKeKeranjang(data);
+                })
+                .catch(err => console.log(err.message));
+        }
+
+        // LOGIKA MODAL CARI MANUAL
+        function muatProdukUntukModal() {
+            fetch('/api/list_semua_produk')
+                .then(res => res.json())
+                .then(data => {
+                    semuaProduk = data;
+                    tampilkanProdukModal(data);
+                });
+        }
+
+        function tampilkanProdukModal(data) {
+            const list = document.getElementById('daftarProdukManual');
+            list.innerHTML = '';
+            data.forEach(p => {
+                list.innerHTML += `
+                    <tr>
+                        <td>${p.nama}</td>
+                        <td>Rp ${p.harga_jual.toLocaleString()}</td>
+                        <td>${p.stok}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="pilihProdukManual(${p.id})" data-bs-dismiss="modal">
+                                <i class="fas fa-plus"></i> Pilih
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function filterProduk() {
+            const keyword = document.getElementById('inputCariManual').value.toLowerCase();
+            const hasilFilter = semuaProduk.filter(p => p.nama.toLowerCase().includes(keyword));
+            tampilkanProdukModal(hasilFilter);
+        }
+
+        function pilihProdukManual(id) {
+            const p = semuaProduk.find(item => item.id === id);
+            if (p) {
+                tambahKeKeranjang({ id: p.id, nama: p.nama, harga: p.harga_jual, stok: p.stok });
+                bunyiTit();
+            }
+        }
+
+        document.getElementById('modalCari').addEventListener('shown.bs.modal', muatProdukUntukModal);
+
+        function tambahKeKeranjang(produk) {
+            const itemAda = keranjang.find(item => item.id === produk.id);
+            if (produk.stok <= 0) {
+                alert("Gagal! Stok barang ini sudah HABIS (0).");
+                return;
+            }
+
+            if (itemAda) {
+                if (itemAda.qty < produk.stok) {
+                    itemAda.qty++;
+                    itemAda.subtotal = itemAda.qty * itemAda.harga;
+                } else { 
+                    alert(`Stok tidak cukup! Maksimal hanya ada ${produk.stok} barang.`); 
+                    return;
+                }
+            } else {
+                keranjang.push({ 
+                    id: produk.id, 
+                    nama: produk.nama, 
+                    harga: produk.harga, 
+                    qty: 1, 
+                    subtotal: produk.harga 
+                });
+            }
+            renderTabel();
+        }
+
+        function renderTabel() {
+            const tbody = document.getElementById('cart-items');
+            const displayTotal = document.getElementById('display-total');
+            tbody.innerHTML = '';
+            let grandTotal = 0;
+
+            keranjang.forEach((item, index) => {
+                grandTotal += item.subtotal;
+                tbody.innerHTML += `
+                    <tr class="align-middle">
+                        <td><strong>${item.nama}</strong></td>
+                        <td>Rp ${item.harga.toLocaleString()}</td>
+                        <td><input type="number" class="form-control form-control-sm" value="${item.qty}" onchange="updateQty(${index}, this.value)"></td>
+                        <td>Rp ${item.subtotal.toLocaleString()}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="hapusItem(${index})"><i class="fas fa-trash"></i></button></td>
+                    </tr>`;
+            });
+            displayTotal.innerText = `Rp ${grandTotal.toLocaleString()}`;
+        }
+
+        function updateQty(index, qtyBaru) {
+            if (qtyBaru < 1) return hapusItem(index);
+            keranjang[index].qty = parseInt(qtyBaru);
+            keranjang[index].subtotal = keranjang[index].qty * keranjang[index].harga;
+            renderTabel();
+        }
+
+        function hapusItem(index) {
+            keranjang.splice(index, 1);
+            renderTabel();
+        }
+
+        function prosesBayar() {
+            if (keranjang.length === 0) return alert("Keranjang masih kosong!");
+
+            if (confirm("Proses transaksi dan cetak struk?")) {
+                fetch('/proses_transaksi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: keranjang })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    dataTerakhir = JSON.parse(JSON.stringify(keranjang));
+                    document.getElementById('btn-reprint').classList.remove('d-none');
+                    
+                    isiStruk(dataTerakhir);
+                    setTimeout(() => {
+                        window.print();
+                        keranjang = [];
+                        renderTabel();
+                        scanInput.focus();
+                    }, 500);
+                })
+                .catch(err => alert("Gagal memproses transaksi!"));
+            }
+        }
+
+        function cetakUlangStruk() {
+            if (dataTerakhir) {
+                isiStruk(dataTerakhir);
+                setTimeout(() => {
+                    window.print();
+                }, 300);
+            }
+        }
+
+        function isiStruk(dataProduk) {
+            const strukItems = document.getElementById('struk-items');
+            const strukTotal = document.getElementById('struk-total');
+            const strukTgl = document.getElementById('struk-tgl');
+            
+            strukItems.innerHTML = '';
+            let total = 0;
+            
+            dataProduk.forEach(item => {
+                total += item.subtotal;
+                strukItems.innerHTML += `
+                    <tr><td colspan="2" style="padding-top:5px;">${item.nama}</td></tr>
+                    <tr>
+                        <td style="width:60%">${item.qty} x ${item.harga.toLocaleString()}</td>
+                        <td style="text-align:right">Rp ${item.subtotal.toLocaleString()}</td>
+                    </tr>`;
+            });
+            
+            strukTotal.innerText = `Rp ${total.toLocaleString()}`;
+            strukTgl.innerText = new Date().toLocaleString('id-ID');
+        }
+    </script>
+</body>
+</html>

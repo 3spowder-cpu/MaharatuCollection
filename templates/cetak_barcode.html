@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Cetak Label Barcode | Maharatu Collection</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        body { background: #f4f6f9; }
+        .label-card { 
+            width: 4cm; 
+            height: 2.5cm; 
+            border: 1px dashed #ccc; 
+            display: inline-block; 
+            margin: 5px; 
+            padding: 5px; 
+            background: white;
+            text-align: center;
+            overflow: hidden;
+        }
+        .brand-name { font-size: 8px; font-weight: bold; color: #d4af37; margin-bottom: 2px; }
+        .product-name { font-size: 9px; white-space: nowrap; overflow: hidden; margin-bottom: 2px; }
+        .price { font-size: 10px; font-weight: bold; margin-top: 2px; }
+        barcode { width: 100%; }
+        
+        @media print {
+            .no-print, .navbar { display: none !important; }
+            body { background: white; padding: 0; }
+            .label-card { border: 1px solid #eee; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark mb-4 no-print">
+    <div class="container">
+        <span class="navbar-brand">Cetak Label Maharatu</span>
+        <div>
+            <a href="/" class="btn btn-outline-light me-2 fw-bold">← KEMBALI KE HOME</a>
+            
+            <button onclick="window.print()" class="btn btn-warning fw-bold">
+                <i class="fa fa-print"></i> CETAK SEKARANG
+            </button>
+        </div>
+    </div>
+</nav>
+
+<div class="container text-center">
+    <div class="alert alert-info no-print small">
+        Pilih jumlah label yang ingin dicetak untuk setiap produk, lalu klik tombol Cetak.
+    </div>
+
+    <div class="row no-print mb-4 justify-content-center">
+        <div class="col-md-6 bg-white p-3 rounded shadow-sm">
+            <h6>Pengaturan Cetak</h6>
+            <table class="table table-sm small">
+                <thead><tr><th>Nama Produk</th><th>Jumlah Label</th></tr></thead>
+                <tbody>
+                    {% for p in produk %}
+                    <tr>
+                        <td class="text-start">{{ p.nama }}</td>
+                        <td><input type="number" class="form-control form-control-sm qty-input" data-id="{{ p.id }}" value="0" min="0"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button onclick="generateLabels()" class="btn btn-dark w-100">Tampilkan Label</button>
+        </div>
+    </div>
+
+    <div id="print-area"></div>
+</div>
+
+<script>
+    const dataProduk = [
+        {% for p in produk %}
+        {
+            id: "{{ p.id }}",
+            nama: "{{ p.nama.upper() }}",
+            barcode: "{{ p.barcode }}",
+            harga: "{{ "{:,.0f}".format(p.harga_jual) }}"
+        },
+        {% endfor %}
+    ];
+
+    function generateLabels() {
+        const area = document.getElementById('print-area');
+        area.innerHTML = '';
+        const inputs = document.querySelectorAll('.qty-input');
+
+        inputs.forEach(input => {
+            const qty = parseInt(input.value);
+            const id = input.getAttribute('data-id');
+            const p = dataProduk.find(item => item.id === id);
+
+            if (p) {
+                for (let i = 0; i < qty; i++) {
+                    const label = document.createElement('div');
+                    label.className = 'label-card';
+                    label.innerHTML = `
+                        <div class="brand-name">MAHARATU COLLECTION</div>
+                        <div class="product-name">${p.nama}</div>
+                        <svg class="barcode-svg" 
+                            jsbarcode-value="${p.barcode}"
+                            jsbarcode-height="30"
+                            jsbarcode-width="1.2"
+                            jsbarcode-fontSize="10">
+                        </svg>
+                        <div class="price">Rp ${p.harga}</div>
+                    `;
+                    area.appendChild(label);
+                }
+            }
+        });
+
+        // Jalankan generator barcode untuk semua SVG yang baru dibuat
+        JsBarcode(".barcode-svg").init();
+    }
+</script>
+
+</body>
+</html>

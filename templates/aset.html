@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Aset - Maharatu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-box-seam"></i> Manajemen Aset Toko</h2>
+        <a href="/" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Kembali ke Dashboard
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <strong>Tambah Aset Baru</strong>
+        </div>
+        <div class="card-body">
+            <form action="/admin/aset" method="POST" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Nama Aset</label>
+                    <input type="text" name="nama_aset" class="form-control" placeholder="Contoh: AC, Meja, Rak" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Jumlah</label>
+                    <input type="number" name="jumlah" class="form-control" value="1" min="1" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kondisi</label>
+                    <select name="kondisi" class="form-select">
+                        <option value="Bagus">Bagus</option>
+                        <option value="Rusak Ringan">Rusak Ringan</option>
+                        <option value="Rusak Berat">Rusak Berat</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Lokasi</label>
+                    <input type="text" name="lokasi" class="form-control" placeholder="Contoh: Ruang Depan">
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-plus-circle"></i> Simpan Aset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nama Aset</th>
+                        <th>Jumlah</th>
+                        <th>Kondisi</th>
+                        <th>Lokasi</th>
+                        <th class="text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in aset %}
+                    <tr>
+                        <td>{{ a.nama_aset }}</td>
+                        <td>{{ a.jumlah }}</td>
+                        <td>
+                            <span class="badge {% if a.kondisi == 'Bagus' %}bg-success{% elif a.kondisi == 'Rusak Ringan' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ a.kondisi }}
+                            </span>
+                        </td>
+                        <td>{{ a.lokasi }}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#editModal{{ a.id }}">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <a href="/admin/aset/hapus/{{ a.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin ingin menghapus aset ini?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="editModal{{ a.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form action="/admin/aset/edit/{{ a.id }}" method="POST" class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Edit Aset</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Nama Aset</label>
+                                        <input type="text" name="nama_aset" class="form-control" value="{{ a.nama_aset }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Jumlah</label>
+                                        <input type="number" name="jumlah" class="form-control" value="{{ a.jumlah }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Kondisi</label>
+                                        <select name="kondisi" class="form-select">
+                                            <option value="Bagus" {% if a.kondisi == 'Bagus' %}selected{% endif %}>Bagus</option>
+                                            <option value="Rusak Ringan" {% if a.kondisi == 'Rusak Ringan' %}selected{% endif %}>Rusak Ringan</option>
+                                            <option value="Rusak Berat" {% if a.kondisi == 'Rusak Berat' %}selected{% endif %}>Rusak Berat</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Lokasi</label>
+                                        <input type="text" name="lokasi" class="form-control" value="{{ a.lokasi }}">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if not aset %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">Belum ada data aset tercatat.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

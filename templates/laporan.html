@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Laporan Penjualan | Maharatu Collection</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background-color: #1a1d21; border-bottom: 3px solid #d4af37; }
+        .card-header { background-color: #1a1d21; color: #d4af37; font-weight: bold; }
+        .table-laporan thead { background-color: #e9ecef; }
+        .filter-card { border: none; border-left: 5px solid #d4af37; }
+        .badge-petugas { background-color: #f8f9fa; color: #333; border: 1px solid #ddd; font-weight: 500; }
+
+        /* CSS KHUSUS CETAK LAPORAN */
+        @media print {
+            body * { visibility: hidden; }
+            /* Menentukan area mana yang aktif saat print */
+            .print-active, .print-active * { visibility: visible !important; }
+            .print-active { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                display: block !important; 
+            }
+            .no-print { display: none; }
+        }
+        #struk-area, #format-struk-kasir { display: none; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fa fa-chart-bar me-2 text-warning"></i>MAHARATU COLLECTION
+            </a>
+            <div class="d-flex gap-2">
+                <span class="navbar-text text-white me-2 d-none d-md-inline">Halo, <strong>{{ session.username }}</strong></span>
+                <a href="/" class="btn btn-outline-light btn-sm px-3">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 bg-success text-white p-3 h-100">
+                    <h6 class="text-uppercase small opacity-75">Omzet Terfilter</h6>
+                    <h2 class="fw-bold mb-0">Rp {{ "{:,.0f}".format(total_omzet) }}</h2>
+                </div>
+            </div>
+            
+            <div class="col-md-9">
+                <div class="card shadow-sm filter-card h-100">
+                    <div class="card-body">
+                        <form method="GET" action="/admin/laporan" class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Dari Tanggal</label>
+                                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ sd }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Sampai Tanggal</label>
+                                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ ed }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Filter Kasir</label>
+                                <select name="user_id" class="form-select form-select-sm">
+                                    <option value="semua">Semua Petugas</option>
+                                    {% for u in users %}
+                                    <option value="{{ u.id }}" {% if selected_user|string == u.id|string %}selected{% endif %}>
+                                        {{ u.username.upper() }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex gap-1">
+                                <button type="submit" class="btn btn-dark btn-sm flex-grow-1 mt-2">Filter</button>
+                                <a href="/admin/laporan" class="btn btn-outline-secondary btn-sm mt-2">Reset</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <a href="{{ url_for('download_laporan') }}" class="btn btn-success">
+                <i class="fa fa-file-excel me-2"></i> Download Excel
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span class="fs-5">Riwayat Transaksi Terkini</span>
+                {% if sd or ed or (selected_user and selected_user != 'semua') %}
+                <span class="badge bg-warning text-dark px-3 py-2">Mode Terfilter Aktif</span>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 table-laporan">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID TRX</th>
+                                <th>Waktu</th>
+                                <th>Petugas</th>
+                                <th>Item Terjual</th>
+                                <th>Total Bayar</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for jual in penjualan %}
+                            <tr>
+                                <td class="fw-bold text-muted">#{{ jual.id }}</td>
+                                <td>{{ jual.tanggal.strftime('%d %b %Y, %H:%M') }}</td>
+                                <td>
+                                    <span class="badge badge-petugas">
+                                        <i class="fa fa-user-circle me-1 text-primary"></i>
+                                        {{ jual.petugas.username if jual.petugas else 'System' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <ul class="list-unstyled mb-0 small">
+                                        {% for item in jual.items %}
+                                        <li><span class="text-muted">•</span> {{ item.nama_produk }} <small class="fw-bold">({{ item.jumlah }}x)</small></li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                                <td class="fw-bold text-success">Rp {{ "{:,.0f}".format(jual.total_bayar) }}</td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-outline-dark" title="Cetak Surat Jalan"
+                                            onclick="prosesCetak('surat', '{{ jual.id }}', '{{ jual.tanggal.strftime('%d/%m/%y %H:%M') }}', '{{ jual.total_bayar }}', {{ loop.index0 }}, '{{ jual.petugas.username if jual.petugas else 'System' }}')">
+                                            <i class="fa fa-file-invoice"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" title="Cetak Struk Kasir"
+                                            onclick="prosesCetak('struk', '{{ jual.id }}', '{{ jual.tanggal.strftime('%d/%m/%y %H:%M') }}', '{{ jual.total_bayar }}', {{ loop.index0 }}, '{{ jual.petugas.username if jual.petugas else 'System' }}')">
+                                            <i class="fa fa-receipt"></i>
+                                        </button>
+
+                                        {% if session.role == 'owner' %}
+                                        <form action="/admin/hapus-penjualan/{{ jual.id }}" method="POST" 
+                                              onsubmit="return confirm('Hapus transaksi ini? Stok akan dikembalikan.')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <script id="data-items-{{ loop.index0 }}" type="application/json">
+                                        [
+                                            {% for item in jual.items %}
+                                            {
+                                                "nama": "{{ item.nama_produk }}",
+                                                "qty": {{ item.jumlah }},
+                                                "harga": {{ item.harga_satuan }},
+                                                "sub": {{ item.subtotal }}
+                                            }{% if not loop.last %},{% endif %}
+                                            {% endfor %}
+                                        ]
+                                    </script>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="fa fa-search fa-3x mb-3 d-block opacity-25"></i>
+                                    Data tidak ditemukan untuk kriteria filter ini.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="struk-area">
+        <div style="padding: 40px; color: #000; font-family: Arial, sans-serif;">
+            <table style="width: 100%; margin-bottom: 20px;">
+                <tr>
+                    <td style="width: 60%;">
+                        <h2 style="margin: 0;">MAHARATU COLLECTION</h2>
+                        <p style="margin: 5px 0;">Fashion & Style | Tangerang, Banten</p>
+                        <p style="margin: 0; font-size: 12px;">IG: @maharatu_collection</p>
+                    </td>
+                    <td style="text-align: right; vertical-align: top;">
+                        <h3 style="margin: 0; text-decoration: underline;">SURAT JALAN</h3>
+                        <p style="margin: 5px 0;" id="p-id"></p>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="margin-bottom: 20px;">
+                <p style="margin: 2px 0;"><strong>Tanggal:</strong> <span id="p-tgl"></span></p>
+                <p style="margin: 2px 0;"><strong>Admin/Kasir:</strong> <span id="p-kasir"></span></p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid #000;">
+                <thead>
+                    <tr style="background-color: #f2f2f2; border: 1px solid #000;">
+                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">Nama Produk</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: center; width: 100px;">Qty</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: right; width: 150px;">Harga Satuan</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: right; width: 150px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="p-items"></tbody>
+                <tfoot>
+                    <tr style="border: 1px solid #000;">
+                        <td colspan="3" style="border: 1px solid #000; padding: 10px; text-align: right;"><strong>TOTAL PEMBAYARAN</strong></td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: right;"><strong><span id="p-total"></span></strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div style="margin-top: 60px; display: flex; justify-content: space-around; text-align: center;">
+                <div style="width: 200px;">
+                    <p>Penerima,</p>
+                    <br><br><br>
+                    <p>( ________________ )</p>
+                </div>
+                <div style="width: 200px;">
+                    <p>Hormat Kami,</p>
+                    <br><br><br>
+                    <p>( Admin Maharatu )</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="format-struk-kasir">
+        <div style="width: 80mm; padding: 5px; font-family: 'Courier New', Courier, monospace; color: #000; font-size: 12px;">
+            <div style="text-align: center;">
+                <h4 style="margin: 0;">MAHARATU COLLECTION</h4>
+                <p style="margin: 0;">Tangerang, Banten</p>
+                <p style="margin: 0;">IG: @maharatu_collection</p>
+                <p style="margin: 5px 0;">--------------------------------</p>
+            </div>
+            <div style="margin-bottom: 5px;">
+                <span id="st-id"></span><br>
+                <span id="st-tgl"></span><br>
+                Kasir: <span id="st-kasir"></span>
+            </div>
+            <p style="margin: 5px 0;">--------------------------------</p>
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                <tbody id="st-items"></tbody>
+            </table>
+            <p style="margin: 5px 0;">--------------------------------</p>
+            <div style="text-align: right;">
+                <strong>TOTAL: <span id="st-total"></span></strong>
+            </div>
+            <p style="margin: 5px 0;">--------------------------------</p>
+            <div style="text-align: center; margin-top: 10px;">
+                Terima Kasih Atas Kunjungan Anda<br>
+                Barang yang sudah dibeli<br>tidak dapat ditukar/dikembalikan
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function prosesCetak(tipe, id, tanggal, total, index, petugas) {
+        const dataItems = JSON.parse(document.getElementById('data-items-' + index).textContent);
+        
+        // Reset class print aktif
+        document.getElementById('struk-area').classList.remove('print-active');
+        document.getElementById('format-struk-kasir').classList.remove('print-active');
+
+        if (tipe === 'surat') {
+            // Isi data Surat Jalan
+            document.getElementById('struk-area').classList.add('print-active');
+            document.getElementById('p-id').innerText = 'No: #TRX-' + id;
+            document.getElementById('p-tgl').innerText = tanggal;
+            document.getElementById('p-kasir').innerText = petugas.toUpperCase();
+            document.getElementById('p-total').innerText = 'Rp ' + parseInt(total).toLocaleString();
+
+            let rows = '';
+            dataItems.forEach(item => {
+                rows += `
+                    <tr style="border: 1px solid #000;">
+                        <td style="border: 1px solid #000; padding: 10px;">${item.nama.toUpperCase()}</td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: center;">${item.qty}</td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: right;">Rp ${parseInt(item.harga).toLocaleString()}</td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: right;">Rp ${parseInt(item.sub).toLocaleString()}</td>
+                    </tr>`;
+            });
+            document.getElementById('p-items').innerHTML = rows;
+        } else {
+            // Isi data Struk Kasir
+            document.getElementById('format-struk-kasir').classList.add('print-active');
+            document.getElementById('st-id').innerText = 'TRX#' + id;
+            document.getElementById('st-tgl').innerText = tanggal;
+            document.getElementById('st-kasir').innerText = petugas;
+            document.getElementById('st-total').innerText = 'Rp ' + parseInt(total).toLocaleString();
+
+            let rows = '';
+            dataItems.forEach(item => {
+                rows += `
+                    <tr><td colspan="2">${item.nama.toUpperCase()}</td></tr>
+                    <tr>
+                        <td>${item.qty} x ${parseInt(item.harga).toLocaleString()}</td>
+                        <td style="text-align: right;">${parseInt(item.sub).toLocaleString()}</td>
+                    </tr>`;
+            });
+            document.getElementById('st-items').innerHTML = rows;
+        }
+
+        window.print();
+    }
+    </script>
+</body>
+</html>

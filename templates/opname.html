@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Opname | Maharatu Collection</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background-color: #1a1d21; border-bottom: 3px solid #d4af37; }
+        .card-header { background-color: #1a1d21; color: #d4af37; font-weight: bold; }
+        .btn-maharatu { background-color: #1a1d21; color: #d4af37; border: 1px solid #d4af37; }
+        .btn-maharatu:hover { background-color: #d4af37; color: #1a1d21; }
+        
+        /* Scanner & Counter UI */
+        #scanner-container { width: 100%; border-radius: 12px; overflow: hidden; background: #000; display: none; margin-bottom: 15px; position: relative; border: 3px solid #d4af37; }
+        #preview { width: 100%; height: auto; display: block; }
+        .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: red; box-shadow: 0 0 15px red; animation: scan 2s infinite; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        
+        .counter-box { background: #1a1d21; color: #d4af37; border-radius: 15px; padding: 25px; text-align: center; border: 2px solid #d4af37; min-height: 250px; display: flex; flex-direction: column; justify-content: center; }
+        .count-number { font-size: 5.5rem; font-weight: bold; line-height: 1; color: #fff; text-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
+        .product-detected { font-size: 1.4rem; margin-top: 15px; color: #d4af37; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fa fa-boxes me-2 text-warning"></i>STOCK AUDIT (SCAN TO COUNT)
+            </a>
+            <a href="/" class="btn btn-outline-light btn-sm px-3">Selesai</a>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        <div class="row">
+            <div class="col-md-5 mb-4">
+                <div class="card shadow-lg border-0">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Scan Barcode Disini</label>
+                            <input type="text" id="barcode_input" class="form-control form-control-lg border-warning text-center fw-bold" placeholder=">>> KLIK DISINI <<<" autofocus>
+                        </div>
+
+                        <div id="scanner-container">
+                            <div id="preview"></div> <div class="scan-line"></div>
+                        </div>
+
+                        <button type="button" id="btn-scan" class="btn btn-dark btn-sm w-100 mb-4 fw-bold">
+                            <i class="fa fa-camera me-2"></i> GUNAKAN KAMERA LAPTOP/HP
+                        </button>
+
+                        <div class="counter-box shadow">
+                            <div class="small text-uppercase fw-bold text-white-50 mb-2">Total Terhitung</div>
+                            <div class="count-number" id="display_qty">0</div>
+                            <div class="product-detected fw-bold text-uppercase" id="display_nama">Menunggu Scan...</div>
+                            <div class="badge bg-warning text-dark mt-2" id="display_barcode" style="display:none;"></div>
+                        </div>
+
+                        <form method="POST" action="/opname" class="mt-4">
+                            <input type="hidden" name="produk_id" id="produk_id_hidden">
+                            <input type="hidden" name="stok_fisik" id="stok_fisik_hidden" value="0">
+                            
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Keterangan (Contoh: "Barang Display")</label>
+                                <textarea name="keterangan" class="form-control" rows="2"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow">
+                                <i class="fa fa-save me-2"></i> SIMPAN HASIL OPNAME
+                            </button>
+                            <button type="button" onclick="location.reload()" class="btn btn-link text-danger w-100 mt-2 text-decoration-none">
+                                <i class="fa fa-trash"></i> Reset Hitungan
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-body py-2">
+                        <form method="GET" action="/opname" class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-muted">Filter Tanggal</label>
+                                <input type="date" name="filter_date" class="form-control form-control-sm" value="{{ filter_date if filter_date else '' }}">
+                            </div>
+                            <div class="col-md-7 d-flex gap-1">
+                                <button type="submit" class="btn btn-dark btn-sm flex-grow-1">Tampilkan</button>
+                                <a href="/opname" class="btn btn-outline-secondary btn-sm">Semua</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <span><i class="fa fa-history me-2"></i>Aktivitas Opname</span>
+                        {% if filter_date %}
+                        <span class="badge bg-warning text-dark">Data: {{ filter_date }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr class="small text-muted">
+                                        <th>WAKTU & TGL</th>
+                                        <th>PRODUK</th>
+                                        <th class="text-center">FISIK</th>
+                                        <th class="text-center">SELISIH</th>
+                                        <th class="text-center">STATUS</th>
+                                        <th class="text-center">AKSI</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for r in riwayat %}
+                                    <tr class="align-middle">
+                                        <td class="small">
+                                            <span class="fw-bold">{{ r.tanggal.strftime('%H:%M') }}</span><br>
+                                            <span class="text-muted" style="font-size: 0.75rem;">{{ r.tanggal.strftime('%d/%m/%y') }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ r.produk.nama }}</strong><br>
+                                            <small class="text-muted">Oleh: {{ r.petugas.username }}</small>
+                                        </td>
+                                        <td class="text-center fw-bold">{{ r.stok_fisik }}</td>
+                                        <td class="text-center">
+                                            {% if r.selisih < 0 %}<span class="badge bg-danger">{{ r.selisih }}</span>
+                                            {% elif r.selisih > 0 %}<span class="badge bg-success">+{{ r.selisih }}</span>
+                                            {% else %}<span class="badge bg-secondary">0</span>{% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if r.status == 'Pending' %}
+                                            <span class="badge bg-warning text-dark">PENDING</span>
+                                            {% else %}
+                                            <span class="badge bg-success">APPROVED</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if session.role == 'owner' and r.status == 'Pending' %}
+                                            <a href="/approve_opname/{{ r.id }}" class="btn btn-sm btn-success fw-bold" 
+                                               onclick="return confirm('ACC opname ini? Stok akan otomatis disesuaikan.')">ACC</a>
+                                            {% elif r.status == 'Approved' %}
+                                            <i class="fa fa-check-double text-success"></i>
+                                            {% else %}
+                                            <span class="text-muted small">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5 text-muted">
+                                            <i class="fa fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
+                                            Tidak ada riwayat opname ditemukan pada filter ini.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        const barcodeInput = document.getElementById('barcode_input');
+        const displayQty = document.getElementById('display_qty');
+        const displayNama = document.getElementById('display_nama');
+        const displayBarcode = document.getElementById('display_barcode');
+        const hiddenId = document.getElementById('produk_id_hidden');
+        const hiddenQty = document.getElementById('stok_fisik_hidden');
+        const btnScan = document.getElementById('btn-scan');
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBeep(frequency, duration) {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime); 
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function soundSuccess() { playBeep(880, 0.1); }
+        function soundError() { playBeep(220, 0.4); }
+
+        const listProduk = [
+            {% for p in produk %}
+            { id: "{{ p.id }}", nama: "{{ p.nama.upper() }}", barcode: "{{ p.barcode }}" },
+            {% endfor %}
+        ];
+
+        let currentBarcode = "";
+        let count = 0;
+
+        function processScan(scannedCode) {
+            if (currentBarcode !== "" && currentBarcode !== scannedCode) {
+                if(!confirm("Ganti barang? Hitungan akan di-reset.")) return;
+                count = 0;
+            }
+            const p = listProduk.find(item => item.barcode === scannedCode);
+            if (p) {
+                currentBarcode = scannedCode;
+                count++; 
+                displayQty.innerText = count;
+                displayNama.innerText = p.nama;
+                displayBarcode.innerText = p.barcode;
+                displayBarcode.style.display = "inline-block";
+                hiddenId.value = p.id;
+                hiddenQty.value = count;
+                soundSuccess();
+            } else {
+                soundError();
+                alert("BARCODE TIDAK DIKENAL: " + scannedCode);
+            }
+        }
+
+        barcodeInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                processScan(this.value);
+                this.value = '';
+            }
+        });
+
+        // KONFIGURASI SCANNER BARU
+        let html5QrCode = new Html5Qrcode("preview");
+        let isScanning = false;
+
+        const qrConfig = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+        async function toggleCamera() {
+            let container = document.getElementById('scanner-container');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (!isScanning) {
+                container.style.display = 'block';
+                Html5Qrcode.getCameras().then(cameras => {
+                    if (cameras && cameras.length > 0) {
+                        // Pilih kamera belakang jika ada
+                        let cameraId = cameras[cameras.length - 1].id;
+                        html5QrCode.start(cameraId, qrConfig, (decodedText) => {
+                            processScan(decodedText);
+                        }).catch(err => {
+                            alert("Gagal start kamera: " + err);
+                        });
+                        isScanning = true;
+                        btnScan.innerHTML = '<i class="fa fa-stop"></i> MATIKAN KAMERA';
+                    }
+                }).catch(err => alert("Error kamera: " + err));
+            } else {
+                await html5QrCode.stop();
+                container.style.display = 'none';
+                isScanning = false;
+                btnScan.innerHTML = '<i class="fa fa-camera"></i> GUNAKAN KAMERA LAPTOP/HP';
+            }
+        }
+
+        btnScan.addEventListener('click', toggleCamera);
+
+        // AUTO-START JIKA IZIN SUDAH ADA
+        window.addEventListener('load', () => {
+            navigator.permissions.query({ name: 'camera' }).then(res => {
+                if (res.state === 'granted') {
+                    toggleCamera();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
